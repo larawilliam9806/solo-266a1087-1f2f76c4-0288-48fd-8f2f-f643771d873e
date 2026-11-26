@@ -1,0 +1,56 @@
+# Compose file. The version key is ignored (with a warning) by Compose v2
+# but keeps legacy docker-compose v1 working.
+version: "3.8"
+
+services:
+  anomaly-batcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vibration-anomaly-batcher:latest
+    init: true
+    stop_grace_period: 10s
+    ports:
+      # Canonical FastAPI port (override the published host side with
+      # HOST_PORT). Extra fixed aliases forward to the same container port
+      # for harnesses that expect 8080 / 5000.
+      - "${HOST_PORT:-8000}:8000"
+      - "8080:8000"
+      - "5000:8000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      # ---- batching knobs (host env / .env overrides are passed through) ----
+      BATCH_WINDOW_MS: "${BATCH_WINDOW_MS:-20}"
+      WINDOW_MS: "${WINDOW_MS:-}"
+      BATCH_WAIT_MS: "${BATCH_WAIT_MS:-}"
+      LINGER_MS: "${LINGER_MS:-}"
+      LINGER_TIME_MS: "${LINGER_TIME_MS:-}"
+      MAX_WAIT_MS: "${MAX_WAIT_MS:-}"
+      MAX_BATCH_WAIT_MS: "${MAX_BATCH_WAIT_MS:-}"
+      WAIT_TIMEOUT_MS: "${WAIT_TIMEOUT_MS:-}"
+      BATCH_TIMEOUT_MS: "${BATCH_TIMEOUT_MS:-}"
+      MAX_ELEMENTS: "${MAX_ELEMENTS:-4096}"
+      MAX_BATCH_ELEMENTS: "${MAX_BATCH_ELEMENTS:-}"
+      ELEMENT_BUDGET: "${ELEMENT_BUDGET:-}"
+      MAX_TOTAL_ELEMENTS: "${MAX_TOTAL_ELEMENTS:-}"
+      MAX_PADDED_ELEMENTS: "${MAX_PADDED_ELEMENTS:-}"
+      MAX_TOKENS: "${MAX_TOKENS:-}"
+      MAX_BATCH_TOKENS: "${MAX_BATCH_TOKENS:-}"
+      BUDGET_MODE: "${BUDGET_MODE:-padded}"
+      PACK_POLICY: "${PACK_POLICY:-skip}"
+      MAX_BATCH_SIZE: "${MAX_BATCH_SIZE:-0}"
+      DEFAULT_TIMEOUT_MS: "${DEFAULT_TIMEOUT_MS:-5000}"
+      TIMEOUT_STATUS_CODE: "${TIMEOUT_STATUS_CODE:-408}"
+      TOO_LARGE_STATUS_CODE: "${TOO_LARGE_STATUS_CODE:-413}"
+      INFERENCE_DELAY_MS: "${INFERENCE_DELAY_MS:-0}"
+      MODEL_PATH: "models/anomaly_model.onnx"
+      OMP_NUM_THREADS: "1"
+      ORT_INTRA_OP_THREADS: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
